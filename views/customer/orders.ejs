@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order History</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/home" class="brand">🍽️ AI Food Order</a>
+      <div class="nav-links">
+        <a href="/home">Home</a>
+        <a href="/orders" style="color: var(--primary); font-weight: bold;">History</a>
+        <span style="margin-left: 20px;">Welcome, <%= user.name %>!</span>
+        <a href="/logout" style="color: var(--danger); margin-left: 15px;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="margin-top: 40px; max-width: 800px;">
+    <h2>📋 Order History</h2>
+    
+    <div id="orders-container" style="margin-top: 20px;">
+      Loading orders...
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" style="display:none;position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;background:var(--success);animation:slideUp .3s ease"></div>
+
+  <script>
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    function reorder(items) {
+      let cart = [];
+      items.forEach(item => {
+        if (item.is_available) {
+          cart.push({ productId: item.product_id, name: item.product_name, price: item.current_price, quantity: item.quantity });
+        }
+      });
+      if (cart.length === 0) {
+        showToast('These items are no longer available.');
+        return;
+      }
+      localStorage.setItem('cart', JSON.stringify(cart));
+      showToast('Cart loaded with your previous order!');
+      setTimeout(() => { window.location.href = '/checkout'; }, 1000);
+    }
+
+    async function loadOrders() {
+      const res = await fetch('/api/orders/my');
+      const data = await res.json();
+      const container = document.getElementById('orders-container');
+      
+      if (data.orders.length === 0) {
+        container.innerHTML = '<div class="card" style="text-align:center;color:#999;">No orders yet. Start exploring!</div>';
+        return;
+      }
+
+      const statusColors = {
+        'pending': 'var(--warning)',
+        'confirmed': '#3498db',
+        'preparing': '#9b59b6',
+        'delivered': 'var(--success)',
+        'cancelled': 'var(--danger)'
+      };
+
+      container.innerHTML = data.orders.map(o => `
+        <div class="card" style="border-left: 5px solid ${statusColors[o.status]}; animation: slideUp 0.3s ease;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-weight: bold; font-size: 18px;">${o.shop_name}</div>
+              <div style="color: #888; font-size: 12px;">Order #${o.id} • ${new Date(o.created_at).toLocaleString()}</div>
+            </div>
+            <div style="text-align: right;">
+              <span style="background: ${statusColors[o.status]}20; color: ${statusColors[o.status]}; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; text-transform: uppercase;">
+                ${o.status}
+              </span>
+              <div style="font-weight: bold; font-size: 18px; margin-top: 5px;">$${o.total_amount.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <ul style="list-style: none; padding: 0;">
+            ${o.items.map(i => `
+              <li style="display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px;">
+                <span>${i.quantity}x ${i.product_name}</span>
+                <span>$${(i.unit_price * i.quantity).toFixed(2)}</span>
+              </li>
+            `).join('')}
+          </ul>
+          
+          <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+            ${o.status === 'delivered' ? `
+              <button class="btn" style="background: #6c5ce7; color: white; padding: 6px 14px; font-size: 13px; width: auto;" onclick='reorder(${JSON.stringify(o.items).replace(/'/g, "&#39;")})'>🔄 Order Again</button>
+            ` : ''}
+            ${o.status === 'delivered' && !o.has_review ? `
+              <a href="/review/${o.id}" class="btn" style="background: #e84393; color: white; padding: 6px 14px; font-size: 13px; width: auto;">⭐ Leave a Review</a>
+            ` : ''}
+            ${o.status === 'delivered' && o.has_review ? `
+              <span style="color: var(--success); font-size: 14px; padding: 6px 0;">✓ Reviewed</span>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>

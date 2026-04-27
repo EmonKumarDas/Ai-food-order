@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - System Alerts</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/admin/dashboard" class="brand">👑 Admin Portal</a>
+      <div class="nav-links"><a href="/logout" style="color: var(--danger);">Logout</a></div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/admin/dashboard">Overview</a></li>
+        <li><a href="/admin/users">Users</a></li>
+        <li><a href="/admin/shops">Shops</a></li>
+        <li><a href="/admin/orders">All Orders</a></li>
+        <li><a href="/admin/alerts" class="active">System Alerts</a></li>
+        <li><a href="/admin/reports">Global AI Reports ✨</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <h2 style="margin-bottom: 20px;">Global System Alerts</h2>
+      <div id="alerts-container">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadAlerts() {
+      const res = await fetch('/api/admin/alerts');
+      const data = await res.json();
+      const container = document.getElementById('alerts-container');
+      
+      if(data.alerts.length === 0) {
+        container.innerHTML = '<div class="card">No alerts found in the system.</div>';
+        return;
+      }
+
+      container.innerHTML = data.alerts.map(a => `
+        <div class="card" style="border-left: 5px solid ${a.is_resolved ? 'var(--success)' : 'var(--danger)'}">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <div>
+              <strong>Shop: ${a.shop_name}</strong><br>
+              <span style="color: #666; font-size: 14px;">${new Date(a.created_at).toLocaleString()}</span>
+            </div>
+            <span style="background: ${a.is_resolved ? 'var(--success)' : 'var(--danger)'}20; color: ${a.is_resolved ? 'var(--success)' : 'var(--danger)'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+              ${a.is_resolved ? 'Resolved' : 'Active'}
+            </span>
+          </div>
+          <div style="margin-bottom: 15px; font-weight: 500;">${a.alert_message}</div>
+          
+          ${!a.is_resolved ? `
+            <div style="display: flex; gap: 10px;">
+              <button class="btn btn-primary" style="padding: 5px 15px;" onclick="updateAlert(${a.id}, 'resolve')">Mark Resolved</button>
+              <button class="btn" style="background: #eee; padding: 5px 15px;" onclick="updateAlert(${a.id}, 'dismiss')">Dismiss</button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function updateAlert(id, action) {
+      await fetch(`/api/admin/alerts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      loadAlerts();
+    }
+
+    loadAlerts();
+  </script>
+</body>
+</html>

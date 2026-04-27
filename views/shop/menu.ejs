@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Menu Management</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .custom-toast{position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;display:none;animation:slideUp .3s ease}
+    .toast-success{background:var(--success)}.toast-error{background:var(--danger)}.toast-info{background:#3498db}
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1500;align-items:center;justify-content:center}
+    .modal-box{background:white;padding:30px;border-radius:10px;width:400px;max-width:90%;box-shadow:0 8px 25px rgba(0,0,0,.2);text-align:center}
+    .modal-box h3{margin-bottom:15px}.modal-box .btn-group{display:flex;gap:10px;justify-content:center;margin-top:20px}
+    .file-upload-area{border:2px dashed #ccc;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:border-color .3s;position:relative}
+    .file-upload-area:hover{border-color:var(--primary)}
+    .file-upload-area img{max-width:100%;max-height:120px;border-radius:4px;margin-top:10px}
+    .file-upload-area input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/shop/dashboard" class="brand">👨‍🍳 Shop Portal</a>
+      <div class="nav-links">
+        <span style="margin-left: 20px;">Shop: <%= shop.shop_name %></span>
+        <a href="/logout" style="color: var(--danger);">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/shop/dashboard">Dashboard</a></li>
+        <li><a href="/shop/orders">Orders</a></li>
+        <li><a href="/shop/menu" class="active">Menu Management</a></li>
+        <li><a href="/shop/reviews">Reviews & Alerts</a></li>
+        <li><a href="/shop/reports">AI Reports ✨</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Manage Menu</h2>
+        <button class="btn btn-primary" onclick="showAddModal()">+ Add Product</button>
+      </div>
+
+      <!-- Add/Edit Product Form -->
+      <div id="product-modal" class="card" style="display: none; border-top: 4px solid var(--primary);">
+        <h3 id="modal-title">Add Product</h3>
+        <form id="productForm" style="margin-top: 15px;" enctype="multipart/form-data">
+          <input type="hidden" id="editId">
+
+          <div class="form-group">
+            <label>Product Name</label>
+            <input type="text" id="p-name" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="p-desc" class="form-control" rows="2"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Price ($)</label>
+            <input type="number" id="p-price" step="0.01" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label>Category</label>
+            <select id="p-cat" class="form-control">
+              <option value="">-- Select Category --</option>
+              <option value="Rice & Biryani">Rice & Biryani</option>
+              <option value="Curry & Gravy">Curry & Gravy</option>
+              <option value="Snacks & Appetizers">Snacks & Appetizers</option>
+              <option value="Pizza">Pizza</option>
+              <option value="Burger">Burger</option>
+              <option value="Sandwich & Wraps">Sandwich & Wraps</option>
+              <option value="Noodles & Pasta">Noodles & Pasta</option>
+              <option value="Soup">Soup</option>
+              <option value="Salads">Salads</option>
+              <option value="Desserts">Desserts</option>
+              <option value="Drinks & Beverages">Drinks & Beverages</option>
+              <option value="Seafood">Seafood</option>
+              <option value="BBQ & Grills">BBQ & Grills</option>
+              <option value="Bread & Roti">Bread & Roti</option>
+              <option value="Combo & Meals">Combo & Meals</option>
+              <option value="__custom__">+ Add Custom Category</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="customCatGroup" style="display: none;">
+            <label>Custom Category Name</label>
+            <input type="text" id="p-cat-custom" class="form-control" placeholder="Type your category name">
+          </div>
+
+          <div class="form-group">
+            <label>Food Image</label>
+            <div class="file-upload-area" id="uploadArea">
+              <div id="uploadPlaceholder">📷 Click here or drag & drop to upload image</div>
+              <img id="imagePreview" style="display:none;" alt="preview">
+              <input type="file" id="p-image" accept="image/*">
+            </div>
+          </div>
+
+          <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="p-avail" checked style="width: 20px; height: 20px;">
+            <label style="margin: 0;">Available for ordering</label>
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn btn-primary">Save Product</button>
+            <button type="button" class="btn" style="background: #eee;" onclick="document.getElementById('product-modal').style.display='none'">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="products-grid" id="menu-container"></div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+      <h3 id="confirmText">Are you sure?</h3>
+      <div class="btn-group">
+        <button class="btn" style="background: var(--danger); color: white;" id="confirmYesBtn">Yes, Delete</button>
+        <button class="btn" style="background: #e0e0e0;" onclick="closeConfirm()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="custom-toast" id="toast"></div>
+
+  <script>
+    // ---- Toast ----
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'custom-toast toast-' + type;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    // ---- Confirm Modal ----
+    let pendingDeleteId = null;
+    function showDeleteConfirm(id) {
+      pendingDeleteId = id;
+      document.getElementById('confirmText').textContent = 'Are you sure you want to delete this product?';
+      document.getElementById('confirmModal').style.display = 'flex';
+    }
+    function closeConfirm() {
+      document.getElementById('confirmModal').style.display = 'none';
+      pendingDeleteId = null;
+    }
+    document.getElementById('confirmYesBtn').addEventListener('click', async () => {
+      if (!pendingDeleteId) return;
+      const id = pendingDeleteId;
+      closeConfirm();
+      const res = await fetch(`/api/shop/products/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Product deleted successfully.');
+      } else {
+        showToast('Failed to delete product.', 'error');
+      }
+      loadMenu();
+    });
+
+    // ---- Category Dropdown ----
+    document.getElementById('p-cat').addEventListener('change', function() {
+      const customGroup = document.getElementById('customCatGroup');
+      if (this.value === '__custom__') {
+        customGroup.style.display = 'block';
+        document.getElementById('p-cat-custom').focus();
+      } else {
+        customGroup.style.display = 'none';
+      }
+    });
+
+    // ---- Image Preview ----
+    document.getElementById('p-image').addEventListener('change', function() {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const preview = document.getElementById('imagePreview');
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+          document.getElementById('uploadPlaceholder').style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // ---- Load Menu ----
+    async function loadMenu() {
+      const res = await fetch('/api/shop/products');
+      const data = await res.json();
+      
+      const container = document.getElementById('menu-container');
+      if (data.products.length === 0) {
+        container.innerHTML = '<div class="card" style="text-align:center;color:#999;">No products yet. Click "+ Add Product" to start building your menu!</div>';
+        return;
+      }
+
+      container.innerHTML = data.products.map(p => `
+        <div class="product-card" style="opacity: ${p.is_available ? 1 : 0.6}; border: ${p.is_available ? 'none' : '2px dashed #ccc'};">
+          <div class="product-img" style="background-image: url('${p.image_url || '/images/products/default.jpg'}'); background-size: cover; background-position: center;"></div>
+          <div class="product-info">
+            <h4 style="margin: 0;">${p.name}</h4>
+            <div style="color: var(--primary); font-weight: bold; margin: 5px 0;">$${p.price.toFixed(2)}</div>
+            <div style="color: #666; font-size: 12px; margin-bottom: 10px;">Cat: ${p.category_name || 'None'}</div>
+            <div style="display: flex; gap: 5px;">
+              <button class="btn" style="padding: 5px; background: #eee; flex: 1;" onclick="editProduct(${p.id})">Edit</button>
+              <button class="btn" style="padding: 5px; background: var(--danger); color: white; flex: 1;" onclick="showDeleteConfirm(${p.id})">Delete</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      
+      window.productsData = data.products;
+    }
+
+    // ---- Add/Edit Modal ----
+    function showAddModal() {
+      document.getElementById('product-modal').style.display = 'block';
+      document.getElementById('productForm').reset();
+      document.getElementById('editId').value = '';
+      document.getElementById('modal-title').textContent = 'Add Product';
+      document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('uploadPlaceholder').style.display = 'block';
+      document.getElementById('customCatGroup').style.display = 'none';
+    }
+
+    function editProduct(id) {
+      const p = window.productsData.find(x => x.id === id);
+      document.getElementById('product-modal').style.display = 'block';
+      document.getElementById('modal-title').textContent = 'Edit Product';
+      document.getElementById('editId').value = p.id;
+      document.getElementById('p-name').value = p.name;
+      document.getElementById('p-desc').value = p.description || '';
+      document.getElementById('p-price').value = p.price;
+      document.getElementById('p-avail').checked = p.is_available === 1;
+      document.getElementById('customCatGroup').style.display = 'none';
+
+      // Set category dropdown
+      const catSelect = document.getElementById('p-cat');
+      const catName = p.category_name || '';
+      let found = false;
+      for (let opt of catSelect.options) {
+        if (opt.value === catName) { catSelect.value = catName; found = true; break; }
+      }
+      if (!found && catName) {
+        catSelect.value = '__custom__';
+        document.getElementById('customCatGroup').style.display = 'block';
+        document.getElementById('p-cat-custom').value = catName;
+      }
+
+      // Show existing image
+      if (p.image_url && p.image_url !== '/images/products/default.jpg') {
+        document.getElementById('imagePreview').src = p.image_url;
+        document.getElementById('imagePreview').style.display = 'block';
+        document.getElementById('uploadPlaceholder').style.display = 'none';
+      } else {
+        document.getElementById('imagePreview').style.display = 'none';
+        document.getElementById('uploadPlaceholder').style.display = 'block';
+      }
+    }
+
+    // ---- Form Submit ----
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const submitProductData = async (lat = null, lng = null) => {
+        const id = document.getElementById('editId').value;
+        const formData = new FormData();
+        formData.append('name', document.getElementById('p-name').value);
+        formData.append('description', document.getElementById('p-desc').value);
+        formData.append('price', document.getElementById('p-price').value);
+        formData.append('isAvailable', document.getElementById('p-avail').checked);
+        if (lat) formData.append('latitude', lat);
+        if (lng) formData.append('longitude', lng);
+
+        // Category logic
+        const catSelect = document.getElementById('p-cat').value;
+        if (catSelect === '__custom__') {
+          formData.append('categoryName', document.getElementById('p-cat-custom').value);
+        } else if (catSelect) {
+          formData.append('categoryName', catSelect);
+        }
+
+        // Image
+        const imageFile = document.getElementById('p-image').files[0];
+        if (imageFile) {
+          formData.append('image', imageFile);
+        }
+
+        const url = id ? `/api/shop/products/${id}` : '/api/shop/products';
+        const method = id ? 'PUT' : 'POST';
+
+        try {
+          const res = await fetch(url, { method, body: formData });
+          const data = await res.json();
+          if (data.success) {
+            document.getElementById('product-modal').style.display = 'none';
+            showToast(id ? 'Product updated successfully!' : 'Product added successfully! Location captured.');
+            loadMenu();
+          } else {
+            showToast(data.error || 'Something went wrong.', 'error');
+          }
+        } catch (err) {
+          showToast('Failed to save product.', 'error');
+        }
+      };
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => submitProductData(pos.coords.latitude, pos.coords.longitude),
+          err => {
+            console.warn('Geolocation failed/denied:', err.message);
+            submitProductData(); // Fallback without location
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        submitProductData();
+      }
+    });
+
+    loadMenu();
+  </script>
+</body>
+</html>

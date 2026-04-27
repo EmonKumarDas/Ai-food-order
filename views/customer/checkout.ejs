@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout - AI Food Order</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .custom-toast{position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;display:none;animation:slideUp .3s ease}
+    .toast-success{background:var(--success)}.toast-error{background:var(--danger)}.toast-warning{background:var(--warning)}
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/home" class="brand">🍽️ AI Food Order</a>
+      <div class="nav-links">
+        <a href="/home">Home</a>
+        <a href="/orders">History</a>
+        <a href="/logout" style="color: var(--danger);">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="margin-top: 40px; max-width: 800px;">
+    <h2>Checkout</h2>
+    
+    <div class="dashboard-grid" style="grid-template-columns: 1fr 300px;">
+      <!-- Delivery details -->
+      <div class="card">
+        <h3>Delivery Information</h3>
+        <div class="form-group" style="margin-top: 15px;">
+          <label>Delivery Address</label>
+          <textarea id="address" class="form-control" rows="3" placeholder="Enter full delivery address" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Payment Method</label>
+          <select id="payment" class="form-control">
+            <option value="cod">Cash on Delivery (COD)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Order Summary -->
+      <div class="card">
+        <h3>Order Summary</h3>
+        <div id="cart-items" style="margin: 15px 0;"></div>
+        <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px;">
+          <span>Total:</span>
+          <span id="cart-total">$0.00</span>
+        </div>
+        <button id="place-order-btn" class="btn btn-primary" style="margin-top: 20px; width: 100%;">Place Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="custom-toast" id="toast"></div>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'custom-toast toast-' + type;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    
+    function renderCart() {
+      const container = document.getElementById('cart-items');
+      if (cart.length === 0) {
+        container.innerHTML = '<p>Your cart is empty.</p>';
+        document.getElementById('place-order-btn').disabled = true;
+        return;
+      }
+
+      let total = 0;
+      container.innerHTML = cart.map((item, index) => {
+        const itemTotal = item.price * item.quantity;
+        total += itemTotal;
+        return `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <div>
+              <span style="color: var(--primary); font-weight: bold;">${item.quantity}x</span> ${item.name}
+            </div>
+            <div>$${itemTotal.toFixed(2)}</div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('cart-total').textContent = '$' + total.toFixed(2);
+    }
+
+    document.getElementById('place-order-btn').addEventListener('click', async (e) => {
+      const address = document.getElementById('address').value;
+      if (!address) {
+        showToast('Please enter a delivery address', 'warning');
+        return;
+      }
+      
+      const btn = e.target;
+      btn.classList.add('loading');
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: cart, deliveryAddress: address })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          showToast('Order placed successfully! Redirecting...');
+          localStorage.removeItem('cart');
+          setTimeout(() => { window.location.href = '/orders'; }, 1500);
+        } else {
+          showToast(data.error || 'Failed to place order', 'error');
+          btn.classList.remove('loading');
+        }
+      } catch (err) {
+        showToast('Server connection failed. Please try again.', 'error');
+        btn.classList.remove('loading');
+      }
+    });
+
+    renderCart();
+  </script>
+</body>
+</html>

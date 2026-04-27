@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Setup Your Shop</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .custom-toast{position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;display:none;animation:slideUp .3s ease}
+    .toast-success{background:var(--success)}.toast-error{background:var(--danger)}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/shop/dashboard" class="brand">👨‍🍳 Shop Portal</a>
+      <div class="nav-links">
+        <span>Welcome, <%= user.name %>!</span>
+        <a href="/logout" style="color: var(--danger);">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="margin-top: 60px; max-width: 600px;">
+    <div class="card" style="text-align: center;">
+      <div style="font-size: 60px; margin-bottom: 15px;">🏪</div>
+      <h2>Setup Your Shop</h2>
+      <p style="color: #666; margin-bottom: 25px;">Let's get your shop ready! Fill in the details below to start selling.</p>
+
+      <form id="setupForm" style="text-align: left;">
+        <div class="form-group">
+          <label>Shop Name</label>
+          <input type="text" id="shopName" class="form-control" required placeholder="e.g. Tasty Bites Kitchen">
+        </div>
+        <div class="form-group">
+          <label>Shop Description</label>
+          <textarea id="description" class="form-control" rows="3" placeholder="Tell customers what makes your food special..."></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label>Shop Location</label>
+          <div style="font-size: 13px; color: #666; margin-bottom: 10px;">We're detecting your current location. You can drag the pin to fine-tune your exact shop position.</div>
+          <div id="map" style="height: 250px; width: 100%; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; z-index: 1;"></div>
+          <input type="hidden" id="latitude">
+          <input type="hidden" id="longitude">
+          <button type="button" class="btn" style="font-size:12px; padding: 5px 10px; background: #eee; color: #333;" onclick="detectLocation()">📍 Re-detect Location</button>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Create My Shop</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="custom-toast" id="toast"></div>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'custom-toast toast-' + type;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    let map, marker;
+    
+    function initMap(lat, lng) {
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        
+        // Update hidden fields when marker is dragged
+        marker.on('dragend', function(e) {
+          const pos = marker.getLatLng();
+          document.getElementById('latitude').value = pos.lat;
+          document.getElementById('longitude').value = pos.lng;
+        });
+      } else {
+        map.setView([lat, lng], 15);
+        marker.setLatLng([lat, lng]);
+      }
+      document.getElementById('latitude').value = lat;
+      document.getElementById('longitude').value = lng;
+    }
+
+    function detectLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            initMap(pos.coords.latitude, pos.coords.longitude);
+            showToast('Location detected successfully!', 'success');
+          },
+          (err) => {
+            console.warn(err);
+            showToast('Could not auto-detect location. Using default center.', 'error');
+            initMap(40.7128, -74.0060); // Default fallback (NYC)
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } else {
+        initMap(40.7128, -74.0060);
+      }
+    }
+
+    // Auto-detect location immediately on page load
+    detectLocation();
+
+    document.getElementById('setupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const shopName = document.getElementById('shopName').value;
+      const description = document.getElementById('description').value;
+      const latitude = document.getElementById('latitude').value;
+      const longitude = document.getElementById('longitude').value;
+      const btn = e.target.querySelector('button[type="submit"]');
+
+      btn.classList.add('loading');
+
+      try {
+        const res = await fetch('/api/shop/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shopName, description, latitude, longitude })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Shop created! Redirecting...');
+          setTimeout(() => { window.location.href = '/shop/dashboard'; }, 1500);
+        } else {
+          showToast(data.error || 'Failed to create shop', 'error');
+          btn.classList.remove('loading');
+        }
+      } catch (err) {
+        showToast('Server connection failed. Please try again.', 'error');
+        btn.classList.remove('loading');
+      }
+    });
+  </script>
+</body>
+</html>

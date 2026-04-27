@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Orders</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/admin/dashboard" class="brand">👑 Admin Portal</a>
+      <div class="nav-links"><a href="/logout" style="color: var(--danger);">Logout</a></div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/admin/dashboard">Overview</a></li>
+        <li><a href="/admin/users">Users</a></li>
+        <li><a href="/admin/shops">Shops</a></li>
+        <li><a href="/admin/orders" class="active">All Orders</a></li>
+        <li><a href="/admin/alerts">System Alerts</a></li>
+        <li><a href="/admin/reports">Global AI Reports ✨</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <h2 style="margin-bottom: 20px;">All Platform Orders</h2>
+      <div id="orders-container">Loading orders...</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadOrders() {
+      const res = await fetch('/api/admin/orders');
+      const data = await res.json();
+      const container = document.getElementById('orders-container');
+      
+      if(data.orders.length === 0) {
+        container.innerHTML = '<div class="card">No orders found.</div>';
+        return;
+      }
+
+      const statusColors = { 'pending':'var(--warning)', 'confirmed':'#3498db', 'preparing':'#9b59b6', 'delivered':'var(--success)', 'cancelled':'var(--danger)' };
+
+      container.innerHTML = data.orders.map(o => `
+        <div class="card" style="border-left: 5px solid ${statusColors[o.status]}">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <div>
+              <strong>Order #${o.id}</strong> — ${new Date(o.created_at).toLocaleString()}<br>
+              <span style="color: #666;">Shop: ${o.shop_name} | Customer: ${o.customer_name}</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="background: ${statusColors[o.status]}20; color: ${statusColors[o.status]}; padding: 4px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase;">${o.status}</span><br>
+              <strong style="font-size: 18px;">$${o.total_amount.toFixed(2)}</strong>
+            </div>
+          </div>
+          
+          <ul style="list-style: none; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+            ${o.items.map(i => `<li>${i.quantity}x ${i.product_name}</li>`).join('');}
+          </ul>
+        </div>
+      `).join('');
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>

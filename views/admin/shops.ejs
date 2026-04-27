@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Shops</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/admin/dashboard" class="brand">👑 Admin Portal</a>
+      <div class="nav-links"><a href="/logout" style="color: var(--danger);">Logout</a></div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/admin/dashboard">Overview</a></li>
+        <li><a href="/admin/users">Users</a></li>
+        <li><a href="/admin/shops" class="active">Shops</a></li>
+        <li><a href="/admin/orders">All Orders</a></li>
+        <li><a href="/admin/alerts">System Alerts</a></li>
+        <li><a href="/admin/reports">Global AI Reports ✨</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <h2 style="margin-bottom: 20px;">Manage Shops</h2>
+      
+      <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: var(--shadow);">
+        <thead style="background: var(--primary); color: white;">
+          <tr>
+            <th style="padding: 12px; text-align: left;">ID</th>
+            <th style="padding: 12px; text-align: left;">Shop Name</th>
+            <th style="padding: 12px; text-align: left;">Owner Email</th>
+            <th style="padding: 12px; text-align: left;">Status</th>
+            <th style="padding: 12px; text-align: left;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="shops-table">
+          <!-- populated via JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Custom Confirm Modal -->
+  <div id="confirmModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 25px; border-radius: 8px; width: 350px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+      <h3 style="margin-bottom: 15px;" id="confirmText">Change shop status?</h3>
+      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+        <button class="btn btn-primary" id="confirmYesBtn">Yes, do it</button>
+        <button class="btn" style="background: #e0e0e0; color: #333;" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Toast Notification -->
+  <div id="toast" style="display: none; position: fixed; bottom: 30px; right: 30px; background: var(--success); color: white; padding: 15px 25px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000; transition: opacity 0.3s;">
+    Shop status updated successfully!
+  </div>
+
+  <script>
+    let pendingActionId = null;
+    let pendingActionType = null;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    function showConfirmModal(shopId, isActive, actionType = 'toggle') {
+      pendingActionId = shopId;
+      pendingActionType = actionType;
+      
+      if (actionType === 'delete') {
+        document.getElementById('confirmText').textContent = 'Are you sure you want to permanently delete this shop and all its data?';
+        document.getElementById('confirmYesBtn').style.background = 'var(--danger)';
+      } else {
+        document.getElementById('confirmText').textContent = isActive 
+          ? 'Are you sure you want to deactivate this shop?' 
+          : 'Are you sure you want to approve this shop?';
+        document.getElementById('confirmYesBtn').style.background = 'var(--primary)';
+      }
+      document.getElementById('confirmModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('confirmModal').style.display = 'none';
+      pendingActionId = null;
+      pendingActionType = null;
+    }
+
+    document.getElementById('confirmYesBtn').addEventListener('click', async () => {
+      if (!pendingActionId) return;
+      const id = pendingActionId;
+      const action = pendingActionType;
+      closeModal();
+      
+      try {
+        let res, data;
+        if (action === 'delete') {
+          res = await fetch(`/api/admin/shops/${id}`, { method: 'DELETE' });
+        } else {
+          res = await fetch(`/api/admin/shops/${id}/toggle`, { method: 'PATCH' });
+        }
+        data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Shop status updated successfully!');
+          loadShops();
+        } else {
+          showToast('Failed to update shop.');
+        }
+      } catch (e) {
+        showToast('Network error.');
+      }
+    });
+
+    async function loadShops() {
+      const res = await fetch('/api/admin/shops');
+      const data = await res.json();
+      
+      document.getElementById('shops-table').innerHTML = data.shops.map(s => `
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 12px;">#${s.id}</td>
+          <td style="padding: 12px;">${s.shop_name}</td>
+          <td style="padding: 12px;">${s.email}</td>
+          <td style="padding: 12px;">
+            <span style="color: ${s.is_active ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
+              ${s.is_active ? 'Active' : 'Pending Approval'}
+            </span>
+          </td>
+          <td style="padding: 12px;">
+            <div style="display: flex; gap: 5px;">
+              <button class="btn" style="padding: 4px 8px; font-size: 12px; background: ${s.is_active ? 'var(--warning)' : 'var(--success)'}; color: white;" onclick="showConfirmModal(${s.id}, ${s.is_active}, 'toggle')">
+                ${s.is_active ? 'Deactivate' : 'Approve Shop'}
+              </button>
+              <button class="btn" style="padding: 4px 8px; font-size: 12px; background: var(--danger); color: white;" onclick="showConfirmModal(${s.id}, null, 'delete')">
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    loadShops();
+  </script>
+</body>
+</html>

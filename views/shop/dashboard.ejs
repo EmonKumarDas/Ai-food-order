@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shop Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .custom-toast{position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;display:none;animation:slideUp .3s ease}
+    .toast-success{background:var(--success)}.toast-error{background:var(--danger)}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/shop/dashboard" class="brand">👨‍🍳 Shop Portal</a>
+      <div class="nav-links">
+        <span style="margin-left: 20px;">Shop: <%= shop.shop_name %></span>
+        <a href="/logout" style="color: var(--danger);">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/shop/dashboard" class="active">Dashboard</a></li>
+        <li><a href="/shop/orders">Orders</a></li>
+        <li><a href="/shop/menu">Menu Management</a></li>
+        <li><a href="/shop/reviews">Reviews & Alerts</a></li>
+        <li><a href="/shop/reports">AI Reports ✨</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <h2 style="margin-bottom: 20px;">Welcome back, <%= user.name %>!</h2>
+      
+      <div id="alerts-container"></div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+        <div class="card" style="text-align: center;">
+          <h3 style="color: var(--text-light); font-size: 16px;">Today's Orders</h3>
+          <div id="today-orders" style="font-size: 36px; font-weight: bold; color: var(--primary);">0</div>
+        </div>
+        <div class="card" style="text-align: center;">
+          <h3 style="color: var(--text-light); font-size: 16px;">Today's Revenue</h3>
+          <div id="today-revenue" style="font-size: 36px; font-weight: bold; color: var(--success);">$0</div>
+        </div>
+        <div class="card" style="text-align: center;">
+          <h3 style="color: var(--text-light); font-size: 16px;">Pending Orders</h3>
+          <div id="pending-orders" style="font-size: 36px; font-weight: bold; color: var(--warning);">0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>AI Daily Summary</h3>
+        <hr style="margin: 10px 0; border: none; border-top: 1px solid #eee;">
+        <div id="ai-summary" style="font-style: italic; color: #555; line-height: 1.8;">
+          Loading AI summary...
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h3>📍 Shop Location</h3>
+        <hr style="margin: 10px 0; border: none; border-top: 1px solid #eee;">
+        <div style="font-size: 13px; color: #666; margin-bottom: 15px;">Your exact delivery pin. Customers use this to find products near them. Drag the pin to adjust your location.</div>
+        <div id="map" style="height: 300px; width: 100%; border-radius: 8px; border: 1px solid #ccc; z-index: 1;"></div>
+        <button class="btn btn-primary" style="margin-top: 15px;" onclick="saveLocation()">Save Location Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="custom-toast" id="toast"></div>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'custom-toast toast-' + type;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    async function loadDashboard() {
+      // Stats
+      const statsRes = await fetch('/api/shop/stats');
+      const stats = await statsRes.json();
+      document.getElementById('today-orders').textContent = stats.todayOrders || 0;
+      document.getElementById('today-revenue').textContent = '$' + (stats.todayRevenue || 0).toFixed(2);
+      document.getElementById('pending-orders').textContent = stats.pendingOrders || 0;
+
+      // Alerts
+      const alertsRes = await fetch('/api/shop/alerts');
+      const alertsData = await alertsRes.json();
+      const unreadAlerts = alertsData.alerts.filter(a => a.is_read === 0);
+      
+      if (unreadAlerts.length > 0) {
+        document.getElementById('alerts-container').innerHTML = unreadAlerts.map(a => `
+          <div class="alert alert-danger" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>${a.alert_message}</div>
+            <button class="btn" style="background: white; border: 1px solid #ccc; padding: 5px 10px;" onclick="markRead(${a.id})">Acknowledge</button>
+          </div>
+        `).join('');
+      }
+
+      // AI Summary
+      const reportRes = await fetch('/api/reports/daily');
+      const reportData = await reportRes.json();
+      document.getElementById('ai-summary').innerHTML = reportData.aiSummary.replace(/\n/g, '<br>');
+    }
+
+    async function markRead(id) {
+      await fetch(`/api/shop/alerts/${id}/read`, { method: 'PATCH' });
+      loadDashboard();
+    }
+
+    // MAP LOGIC
+    let map, marker;
+    let shopLat = <%= shop.latitude || 'null' %>;
+    let shopLng = <%= shop.longitude || 'null' %>;
+
+    function initMap(lat, lng) {
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        
+        marker.on('dragend', function(e) {
+          const pos = marker.getLatLng();
+          shopLat = pos.lat;
+          shopLng = pos.lng;
+        });
+      } else {
+        map.setView([lat, lng], 15);
+        marker.setLatLng([lat, lng]);
+      }
+    }
+
+    if (shopLat && shopLng) {
+      initMap(shopLat, shopLng);
+    } else {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => { shopLat = pos.coords.latitude; shopLng = pos.coords.longitude; initMap(shopLat, shopLng); },
+          err => { initMap(40.7128, -74.0060); }
+        );
+      } else {
+        initMap(40.7128, -74.0060);
+      }
+    }
+
+    async function saveLocation() {
+      try {
+        const res = await fetch('/api/shop/location', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ latitude: shopLat, longitude: shopLng })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Shop location updated successfully!');
+        } else {
+          showToast('Failed to update location', 'error');
+        }
+      } catch (e) {
+        showToast('Network error', 'error');
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

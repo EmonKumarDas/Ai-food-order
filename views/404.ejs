@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>404 - Page Not Found</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-card" style="text-align: center;">
+      <h1 style="font-size: 72px; margin-bottom: 0;">404</h1>
+      <h2 style="color: var(--text); margin-bottom: 20px;">Page Not Found</h2>
+      <p style="color: var(--text-light); margin-bottom: 30px;">
+        Oops! The page you are looking for doesn't exist or hasn't been built yet.
+      </p>
+      
+      <% if (user) { %>
+        <% if (user.role === 'customer') { %>
+          <a href="/home" class="btn btn-primary">Return Home</a>
+        <% } else if (user.role === 'shop') { %>
+          <a href="/shop/dashboard" class="btn btn-primary">Return to Dashboard</a>
+        <% } else { %>
+          <a href="/admin/dashboard" class="btn btn-primary">Return to Dashboard</a>
+        <% } %>
+      <% } else { %>
+        <a href="/login" class="btn btn-primary">Return to Login</a>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .category-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+    .cat-btn{padding:6px 14px;border-radius:20px;background:#f0f0f0;color:#333;border:none;cursor:pointer;font-size:13px;transition:all .2s}
+    .cat-btn.active,.cat-btn:hover{background:var(--primary);color:white}
+    .reorder-card{display:flex;align-items:center;justify-content:space-between;padding:15px;background:#fff;border-radius:8px;border:1px solid #eee;margin-bottom:10px}
+    .reorder-items{font-size:13px;color:#666}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/home" class="brand">🍽️ AI Food Order</a>
+      <div class="nav-links">
+        <a href="/home">Home</a>
+        <a href="/orders">History</a>
+        <span style="margin-left: 20px;">Welcome, <%= user.name %>!</span>
+        <a href="javascript:void(0)" onclick="openCart()" style="margin-left: 15px; font-weight: bold; color: var(--primary);">🛒 Cart (<span id="cart-count">0</span>)</a>
+        <a href="/logout" style="color: var(--danger); margin-left: 15px;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="margin-top: 40px;">
+    
+    <!-- AI Suggestions Section -->
+    <div id="ai-suggestions" class="card" style="display: none; background: linear-gradient(to right, #f8f9fa, #e9ecef); border-left: 5px solid var(--primary);">
+      <h3 id="ai-suggestions-title" style="color: var(--primary);">✨ AI Recommended For You</h3>
+      <p id="ai-suggestions-subtitle" style="color: #666; margin-bottom: 15px; font-size: 14px;">Based on your past reviews and preferences</p>
+      <div class="products-grid" id="suggestions-container" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+      </div>
+    </div>
+
+    <!-- Re-order Section -->
+    <div id="reorder-section" style="display: none; margin-bottom: 30px;">
+      <h3 style="margin-bottom: 15px;">🔄 Order Again</h3>
+      <div id="reorder-container"></div>
+    </div>
+
+    <!-- Browse Menu -->
+    <h2>Browse Menu</h2>
+    <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+
+    <!-- Category Filter Bar -->
+    <div class="category-bar" id="category-bar">
+      <button class="cat-btn active" onclick="filterByCategory('')">All</button>
+    </div>
+    
+    <div class="products-grid" id="products-container">
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" style="display:none;position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;background:var(--success);animation:slideUp .3s ease"></div>
+  <!-- Cart Sidebar -->
+  <div id="cartSidebar" style="display:none;position:fixed;top:0;right:0;width:350px;height:100%;background:white;box-shadow:-5px 0 15px rgba(0,0,0,0.1);z-index:2000;flex-direction:column;animation:slideIn .3s ease">
+    <div style="padding:20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">🛒 Your Cart</h3>
+      <button style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;" onclick="document.getElementById('cartSidebar').style.display='none'">&times;</button>
+    </div>
+    <div id="cartItems" style="padding:20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:15px;">
+    </div>
+    <div style="padding:20px;border-top:1px solid #eee;background:#fafafa;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:15px;font-weight:bold;font-size:18px;">
+        <span>Total:</span>
+        <span id="cartTotal">$0.00</span>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="window.location.href='/checkout'">Proceed to Checkout</button>
+    </div>
+  </div>
+  <style>@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}</style>
+
+  <script>
+    let allProducts = [];
+    let currentCategory = '';
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    // ---- Category Filter ----
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        if (data.categories && data.categories.length > 0) {
+          const bar = document.getElementById('category-bar');
+          bar.innerHTML = '<button class="cat-btn active" onclick="filterByCategory(\'\')">All</button>';
+          data.categories.forEach(name => {
+            bar.innerHTML += `<button class="cat-btn" onclick="filterByCategory('${name}')">${name}</button>`;
+          });
+        }
+      } catch(e) {}
+    }
+
+    function filterByCategory(cat) {
+      currentCategory = cat;
+      // Update active button
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent === (cat || 'All'));
+      });
+      renderProducts();
+    }
+
+    function renderProducts() {
+      const container = document.getElementById('products-container');
+      let filtered = allProducts;
+      if (currentCategory) {
+        filtered = allProducts.filter(p => p.category_name === currentCategory);
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="card" style="text-align:center;color:#999;">No products found in this category.</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(p => `
+        <div class="product-card">
+          <div class="product-img" style="background-image: url('${p.image_url || '/images/default.jpg'}'); background-size: cover; background-position: center;"></div>
+          <div class="product-info">
+            <div style="font-size: 12px; color: #888; text-transform: uppercase;">${p.shop_name} • ${p.category_name || 'Uncategorized'}</div>
+            <h3 style="margin: 5px 0;">${p.name}</h3>
+            <p style="color: #666; font-size: 14px; min-height: 40px;">${p.description || ''}</p>
+            <div class="product-price">$${p.price.toFixed(2)}</div>
+            <div style="margin-bottom: 15px; font-size: 14px;">⭐ ${p.avg_rating.toFixed(1)} (${p.review_count} reviews)</div>
+            <button class="btn btn-primary" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price})" style="padding: 8px 16px; width: 100%;">Add to Cart</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ---- Load Products ----
+    let userLat = null, userLng = null;
+    async function loadProducts() {
+      let url = '/api/products';
+      if (userLat && userLng) {
+        url += `?lat=${userLat}&lng=${userLng}`;
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      allProducts = data.products || [];
+      renderProducts();
+    }
+
+    // ---- Re-order Section ----
+    async function loadReorders() {
+      try {
+        const res = await fetch('/api/orders/recent');
+        const data = await res.json();
+        if (data.orders && data.orders.length > 0) {
+          document.getElementById('reorder-section').style.display = 'block';
+          const container = document.getElementById('reorder-container');
+          container.innerHTML = data.orders.map(o => `
+            <div class="reorder-card">
+              <div>
+                <strong>${o.shop_name}</strong>
+                <div class="reorder-items">${o.items.map(i => i.quantity + 'x ' + i.product_name).join(', ')}</div>
+                <div style="font-size:12px;color:#aaa;margin-top:4px;">${new Date(o.created_at).toLocaleDateString()}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:bold;margin-bottom:6px;">$${o.total_amount.toFixed(2)}</div>
+                <button class="btn btn-primary" style="padding:5px 12px;font-size:13px;" onclick="reorder(${JSON.stringify(o.items).replace(/"/g, '&quot;')})">Order Again</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch(e) { console.log('No past orders'); }
+    }
+
+    function reorder(items) {
+      let cart = [];
+      items.forEach(item => {
+        if (item.is_available) {
+          cart.push({ productId: item.product_id, name: item.product_name, price: item.current_price, quantity: item.quantity });
+        }
+      });
+      if (cart.length === 0) {
+        showToast('These items are no longer available.');
+        return;
+      }
+      localStorage.setItem('cart', JSON.stringify(cart));
+      showToast('Cart loaded with your previous order!');
+      setTimeout(() => { window.location.href = '/checkout'; }, 1000);
+    }
+
+    // ---- AI Suggestions ----
+    async function loadSuggestions() {
+      try {
+        const res = await fetch('/api/suggestions');
+        const data = await res.json();
+        
+        if (data.suggestions && data.suggestions.length > 0) {
+          document.getElementById('ai-suggestions').style.display = 'block';
+          
+          if (data.type === 'trending') {
+            document.getElementById('ai-suggestions-title').innerHTML = '🔥 Trending Near You';
+            document.getElementById('ai-suggestions-subtitle').innerHTML = 'Highly rated items you might love';
+            document.getElementById('ai-suggestions').style.borderLeft = '5px solid #ff6b6b';
+            document.getElementById('ai-suggestions-title').style.color = '#ff6b6b';
+          }
+          
+          const container = document.getElementById('suggestions-container');
+          
+          container.innerHTML = data.suggestions.map(p => `
+            <div class="product-card" style="box-shadow: none; border: 1px solid #ddd;">
+              <div class="product-info" style="padding: 15px;">
+                <h4 style="margin: 0 0 5px 0; font-size: 16px;">${p.name}</h4>
+                <div style="font-size: 12px; color: #666;">From ${p.shop_name}</div>
+                <div style="font-weight: bold; color: var(--primary); margin-top: 5px;">$${p.price.toFixed(2)}</div>
+                <button class="btn btn-primary" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price})" style="padding: 5px 10px; font-size: 12px; margin-top: 10px;">Add</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch(e) { console.log('No AI suggestions available yet'); }
+    }
+
+    // ---- Cart ----
+    function updateCartCount() {
+      let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      let count = cart.reduce((sum, item) => sum + item.quantity, 0);
+      document.getElementById('cart-count').textContent = count;
+    }
+
+    function openCart() {
+      renderCartItems();
+      document.getElementById('cartSidebar').style.display = 'flex';
+    }
+
+    function renderCartItems() {
+      let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const container = document.getElementById('cartItems');
+      if (cart.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:#999;margin-top:20px;">Your cart is empty.</p>';
+        document.getElementById('cartTotal').textContent = '$0.00';
+        return;
+      }
+
+      let total = 0;
+      container.innerHTML = cart.map((item, index) => {
+        total += item.price * item.quantity;
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #eee;">
+            <div style="flex:1;">
+              <div style="font-weight:bold;font-size:14px;">${item.name}</div>
+              <div style="color:var(--primary);font-size:13px;">$${item.price.toFixed(2)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;background:#f0f0f0;padding:4px 8px;border-radius:15px;">
+              <button style="border:none;background:white;width:24px;height:24px;border-radius:12px;cursor:pointer;font-weight:bold;line-height:1;" onclick="updateQuantity(${index}, -1)">-</button>
+              <span style="font-size:14px;width:15px;text-align:center;">${item.quantity}</span>
+              <button style="border:none;background:white;width:24px;height:24px;border-radius:12px;cursor:pointer;font-weight:bold;line-height:1;" onclick="updateQuantity(${index}, 1)">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('cartTotal').textContent = '$' + total.toFixed(2);
+    }
+
+    function updateQuantity(index, change) {
+      let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      let item = cart[index];
+      let newQty = item.quantity + change;
+      
+      if (newQty > 5) {
+        showToast('Maximum 5 units allowed per product.');
+        return;
+      }
+      
+      if (newQty <= 0) {
+        cart.splice(index, 1);
+      } else {
+        item.quantity = newQty;
+      }
+      
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCartCount();
+      renderCartItems();
+    }
+
+    function addToCart(productId, name, price) {
+      let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      
+      const existing = cart.find(i => i.productId === productId);
+      if (existing) {
+        if (existing.quantity >= 5) {
+          showToast(`Maximum 5 units allowed for "${name}"`);
+          return;
+        }
+        existing.quantity += 1;
+      } else {
+        cart.push({ productId, name, price, quantity: 1 });
+      }
+      
+      localStorage.setItem('cart', JSON.stringify(cart));
+      showToast(`✅ Added "${name}" to cart!`);
+      updateCartCount();
+    }
+
+    // ---- Init ----
+    updateCartCount();
+    loadCategories();
+    loadSuggestions();
+    loadReorders();
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; loadProducts(); },
+        err => { loadProducts(); },
+        { timeout: 5000 }
+      );
+    } else {
+      loadProducts();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reviews & Alerts</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/shop/dashboard" class="brand">👨‍🍳 Shop Portal</a>
+      <div class="nav-links">
+        <span style="margin-left: 20px;">Shop: <%= shop.shop_name %></span>
+        <a href="/logout" style="color: var(--danger);">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/shop/dashboard">Dashboard</a></li>
+        <li><a href="/shop/orders">Orders</a></li>
+        <li><a href="/shop/menu">Menu Management</a></li>
+        <li><a href="/shop/reviews" class="active">Reviews & Alerts</a></li>
+        <li><a href="/shop/reports">AI Reports ✨</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <h2 style="margin-bottom: 20px; color: var(--danger);">🚨 Active System Alerts</h2>
+      <div id="alerts-container" style="margin-bottom: 40px;">Loading alerts...</div>
+
+      <h2 style="margin-bottom: 20px;">Customer Reviews</h2>
+      <div id="reviews-container">Loading reviews...</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadAlertsAndReviews() {
+      // Alerts
+      const alertsRes = await fetch('/api/shop/alerts');
+      const alertsData = await alertsRes.json();
+      const container = document.getElementById('alerts-container');
+      
+      const unread = alertsData.alerts.filter(a => a.is_read === 0);
+      if (unread.length === 0) {
+        container.innerHTML = '<div style="color: var(--success); font-weight: bold;">No active alerts! Everything looks good.</div>';
+      } else {
+        container.innerHTML = unread.map(a => `
+          <div class="alert alert-danger" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>${a.alert_message}</div>
+            <button class="btn" style="background: white; border: 1px solid #ccc; padding: 5px 10px;" onclick="markRead(${a.id})">Dismiss</button>
+          </div>
+        `).join('');
+      }
+
+      // Reviews
+      // We'll fetch today's reviews via the daily report endpoint for simplicity
+      const reportRes = await fetch('/api/reports/daily');
+      const reportData = await reportRes.json();
+      const revContainer = document.getElementById('reviews-container');
+      
+      if (reportData.reviews.length === 0) {
+        revContainer.innerHTML = '<div class="card">No reviews today.</div>';
+        return;
+      }
+
+      revContainer.innerHTML = reportData.reviews.map(r => {
+        let badgeColor = r.sentiment_label === 'positive' ? 'var(--success)' : (r.sentiment_label === 'negative' ? 'var(--danger)' : 'var(--warning)');
+        return `
+          <div class="card" style="border-left: 5px solid ${badgeColor}">
+            <div style="display: flex; justify-content: space-between;">
+              <strong>${r.user_name} reviewed ${r.product_name || 'an order'}</strong>
+              <span style="color: ${badgeColor}; font-weight: bold; text-transform: capitalize;">${r.sentiment_label}</span>
+            </div>
+            <div style="color: #f1c40f; font-size: 20px; margin: 5px 0;">
+              ${'★'.repeat(r.star_rating)}${'☆'.repeat(5 - r.star_rating)}
+            </div>
+            <p style="color: #555; font-style: italic;">"${r.review_text || 'No text provided'}"</p>
+            <div style="font-size: 12px; color: #999; margin-top: 10px;">${new Date(r.created_at).toLocaleString()}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function markRead(id) {
+      await fetch(`/api/shop/alerts/${id}/read`, { method: 'PATCH' });
+      loadAlertsAndReviews();
+    }
+
+    loadAlertsAndReviews();
+  </script>
+</body>
+</html>

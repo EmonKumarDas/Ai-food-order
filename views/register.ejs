@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - AI Food Order</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1>🍽️ Create Account</h1>
+      
+      <div id="error-msg" style="color: red; text-align: center; margin-bottom: 15px; display: none;"></div>
+
+      <form id="registerForm">
+        <div class="form-group">
+          <label>I want to register as a:</label>
+          <select id="role" class="form-control" onchange="toggleShopName()">
+            <option value="customer">Customer</option>
+            <option value="shop">Shop Owner</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="name" class="form-control" required>
+        </div>
+        
+        <div class="form-group" id="shopNameGroup" style="display: none;">
+          <label>Shop Name</label>
+          <input type="text" id="shopName" class="form-control">
+        </div>
+        
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="email" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="password" class="form-control" required minlength="6">
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </form>
+      
+      <p style="text-align: center; margin-top: 20px;">
+        Already have an account? <a href="/login" style="color: var(--primary);">Login here</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Success Modal for Shop Registration -->
+  <div id="successModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1500;align-items:center;justify-content:center;">
+    <div style="background:white;padding:30px;border-radius:10px;width:400px;max-width:90%;box-shadow:0 8px 25px rgba(0,0,0,.2);text-align:center;">
+      <div style="font-size:50px;margin-bottom:10px;">⏳</div>
+      <h3>Shop Registration Pending</h3>
+      <p style="color:#666;margin:15px 0;">Your shop account has been created and is pending admin approval. You will be able to log in once an admin activates your account.</p>
+      <button class="btn btn-primary" onclick="window.location.href='/login'">Go to Login</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" style="display:none;position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;animation:slideUp .3s ease"></div>
+  <style>@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}</style>
+
+  <script>
+    function showToast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.background = type === 'error' ? 'var(--danger)' : 'var(--success)';
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    function toggleShopName() {
+      const role = document.getElementById('role').value;
+      const shopGroup = document.getElementById('shopNameGroup');
+      const shopInput = document.getElementById('shopName');
+      if (role === 'shop') {
+        shopGroup.style.display = 'block';
+        shopInput.required = true;
+      } else {
+        shopGroup.style.display = 'none';
+        shopInput.required = false;
+      }
+    }
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('role').value;
+      const shopName = document.getElementById('shopName').value;
+      const btn = e.target.querySelector('button[type="submit"]');
+
+      btn.classList.add('loading');
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, role, shopName })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          if (role === 'shop') {
+            document.getElementById('successModal').style.display = 'flex';
+            btn.classList.remove('loading');
+          } else {
+            window.location.href = data.redirectPath;
+          }
+        } else {
+          const err = document.getElementById('error-msg');
+          err.textContent = data.error;
+          err.style.display = 'block';
+          btn.classList.remove('loading');
+        }
+      } catch (err) {
+        showToast('Server connection failed. Please try again.', 'error');
+        btn.classList.remove('loading');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shop Orders</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .custom-toast{position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;display:none;animation:slideUp .3s ease}
+    .toast-success{background:var(--success)}.toast-error{background:var(--danger)}
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1500;align-items:center;justify-content:center}
+    .modal-box{background:white;padding:30px;border-radius:10px;width:400px;max-width:90%;box-shadow:0 8px 25px rgba(0,0,0,.2);text-align:center}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/shop/dashboard" class="brand">👨‍🍳 Shop Portal</a>
+      <div class="nav-links">
+        <span style="margin-left: 20px;">Shop: <%= shop.shop_name %></span>
+        <a href="/logout" style="color: var(--danger);">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/shop/dashboard">Dashboard</a></li>
+        <li><a href="/shop/orders" class="active">Orders</a></li>
+        <li><a href="/shop/menu">Menu Management</a></li>
+        <li><a href="/shop/reviews">Reviews & Alerts</a></li>
+        <li><a href="/shop/reports">AI Reports ✨</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Incoming Orders</h2>
+        <select id="statusFilter" class="form-control" style="width: 200px;" onchange="loadOrders()">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="preparing">Preparing</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      <div id="orders-container">Loading orders...</div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+      <h3 id="confirmText">Update order status?</h3>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+        <button class="btn btn-primary" id="confirmYesBtn">Yes, Update</button>
+        <button class="btn" style="background:#e0e0e0;color:#333;" onclick="closeConfirm()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="custom-toast" id="toast"></div>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'custom-toast toast-' + type;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    let pendingOrderId = null;
+    let pendingNewStatus = null;
+
+    function showStatusConfirm(id, newStatus) {
+      pendingOrderId = id;
+      pendingNewStatus = newStatus;
+      const statusLabels = { confirmed: 'Confirm', preparing: 'Mark as Preparing', delivered: 'Mark as Delivered', cancelled: 'Cancel' };
+      document.getElementById('confirmText').textContent = `${statusLabels[newStatus] || 'Update'} Order #${id}?`;
+      document.getElementById('confirmModal').style.display = 'flex';
+    }
+
+    function closeConfirm() {
+      document.getElementById('confirmModal').style.display = 'none';
+      pendingOrderId = null;
+      pendingNewStatus = null;
+    }
+
+    document.getElementById('confirmYesBtn').addEventListener('click', async () => {
+      if (!pendingOrderId) return;
+      const id = pendingOrderId;
+      const status = pendingNewStatus;
+      closeConfirm();
+
+      try {
+        const res = await fetch(`/api/orders/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Order #${id} updated to "${status}"`);
+        } else {
+          showToast(data.error || 'Failed to update order', 'error');
+        }
+      } catch (e) {
+        showToast('Network error', 'error');
+      }
+      loadOrders();
+    });
+
+    async function loadOrders() {
+      const status = document.getElementById('statusFilter').value;
+      const res = await fetch(`/api/shop/orders${status ? '?status=' + status : ''}`);
+      const data = await res.json();
+      const container = document.getElementById('orders-container');
+      
+      if(data.orders.length === 0) {
+        container.innerHTML = '<div class="card">No orders found.</div>';
+        return;
+      }
+
+      container.innerHTML = data.orders.map(o => `
+        <div class="card" style="border-left: 5px solid ${getStatusColor(o.status)}">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <div>
+              <strong>Order #${o.id}</strong> — ${new Date(o.created_at).toLocaleString()}<br>
+              <span style="color: #666;">Customer: ${o.customer_name}</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="background: ${getStatusColor(o.status)}20; color: ${getStatusColor(o.status)}; padding: 4px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase;">${o.status}</span><br>
+              <strong style="font-size: 18px;">$${o.total_amount.toFixed(2)}</strong>
+            </div>
+          </div>
+          
+          <ul style="list-style: none; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+            ${o.items.map(i => `<li>${i.quantity}x ${i.product_name} ($${(i.unit_price * i.quantity).toFixed(2)})</li>`).join('')}
+          </ul>
+          
+          <div style="color: #666; font-size: 14px; margin-bottom: 15px;">
+            📍 Address: ${o.delivery_address}
+          </div>
+
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            ${getActionButtons(o.id, o.status)}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function getStatusColor(status) {
+      return { 'pending':'var(--warning)', 'confirmed':'#3498db', 'preparing':'#9b59b6', 'delivered':'var(--success)', 'cancelled':'var(--danger)' }[status] || '#ccc';
+    }
+
+    function getActionButtons(id, status) {
+      if(status === 'pending') return `<button class="btn btn-primary" onclick="showStatusConfirm(${id}, 'confirmed')">Confirm Order</button> <button class="btn" style="background:var(--danger); color:white;" onclick="showStatusConfirm(${id}, 'cancelled')">Cancel</button>`;
+      if(status === 'confirmed') return `<button class="btn" style="background:#9b59b6; color:white;" onclick="showStatusConfirm(${id}, 'preparing')">Mark Preparing</button>`;
+      if(status === 'preparing') return `<button class="btn" style="background:var(--success); color:white;" onclick="showStatusConfirm(${id}, 'delivered')">Mark Delivered</button>`;
+      return '';
+    }
+
+    loadOrders();
+    setInterval(loadOrders, 30000);
+  </script>
+</body>
+</html>
