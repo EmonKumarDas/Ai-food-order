@@ -61,7 +61,7 @@ router.get('/review/:orderId', requireAuth, roleGuard('customer'), (req, res) =>
 // GET /api/products — List all available products
 router.get('/api/products', (req, res) => {
   try {
-    const { category, shop, search, sort, page = 1, limit = 20, lat, lng } = req.query;
+    const { category, shop, search, sort, page = 1, limit = 10000, lat, lng } = req.query;
     const offset = (page - 1) * limit;
     let params = [];
     let where = ['p.is_available = 1', 's.is_active = 1'];

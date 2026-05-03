@@ -12,7 +12,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, '../public/images/uploads')),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/\s/g, '_'))
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (req, file, cb) => {
+const upload = multer({ storage, fileFilter: (req, file, cb) => {
   const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
   cb(null, allowed.includes(file.mimetype));
 }});

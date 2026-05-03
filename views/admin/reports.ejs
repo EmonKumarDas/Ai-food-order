@@ -247,10 +247,10 @@
     async function loadMonthly() {
       window._monthlyLoaded = true;
       try {
-        const res = await fetch('/api/reports/monthly');
+        const res = await fetch('/api/reports/growth');
         const data = await res.json();
 
-        document.getElementById('monthly-text').innerHTML = (data.aiRecommendation || 'No data yet.').replace(/\n/g, '<br>');
+        document.getElementById('monthly-text').innerHTML = (data.aiSuggestion || 'No data yet.').replace(/\n/g, '<br>');
         document.getElementById('m-rev').textContent = '$' + (data.totalRevenue || '0.00');
         document.getElementById('m-sent').textContent = (data.avgSentiment || '0.50') + '/1.0';
         document.getElementById('m-high').textContent = data.loyaltyStats?.high || 0;
