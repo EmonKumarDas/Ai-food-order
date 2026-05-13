@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Gateway - AI Food Order</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .payment-container { max-width: 500px; margin: 60px auto; text-align: center; }
+    .payment-logo { font-size: 40px; margin-bottom: 20px; }
+    .payment-details { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: left; }
+    .custom-toast{position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;display:none;animation:slideUp .3s ease}
+    .toast-success{background:var(--success)}.toast-error{background:var(--danger)}.toast-warning{background:var(--warning)}
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  </style>
+</head>
+<body>
+  <div class="container payment-container card">
+    <div class="payment-logo">
+      <% if (method === 'bkash') { %>
+        <img src="https://scripts.sandbox.bka.sh/resources/img/bkash_logo.png" alt="bKash" height="50">
+      <% } else if (method === 'nagad') { %>
+        <img src="https://download.logo.wine/logo/Nagad/Nagad-Logo.wine.png" alt="Nagad" height="60" style="margin-top: -10px;">
+      <% } else if (method === 'rocket') { %>
+        <span style="color: #8E24AA; font-weight: bold; font-size: 32px;">ROCKET</span>
+      <% } else if (method === 'sslcommerz') { %>
+        <span style="color: #0056b3; font-weight: bold; font-size: 30px;">SSLCOMMERZ</span>
+      <% } else { %>
+        💳 Payment Gateway
+      <% } %>
+    </div>
+    
+    <h3>Complete Your Payment</h3>
+    
+    <div class="payment-details">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+        <span>Amount to Pay:</span>
+        <strong style="font-size: 1.2rem;">$<%= totalAmount.toFixed(2) %></strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span>Payment Method:</span>
+        <strong style="text-transform: capitalize;"><%= method %></strong>
+      </div>
+    </div>
+
+    <div class="form-group" style="text-align: left;">
+      <label>Mobile Number / Account No</label>
+      <input type="text" id="accountNo" class="form-control" placeholder="e.g. 017XXXXXXXX" required>
+    </div>
+    <div class="form-group" style="text-align: left;">
+      <label>PIN / Password</label>
+      <input type="password" id="pin" class="form-control" placeholder="Enter PIN" required>
+    </div>
+
+    <button id="pay-btn" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Confirm Payment</button>
+    <a href="/orders" class="btn btn-danger" style="width: 100%; margin-top: 10px; display: block; text-align: center;">Cancel</a>
+  </div>
+
+  <div class="custom-toast" id="toast"></div>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'custom-toast toast-' + type;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    document.getElementById('pay-btn').addEventListener('click', async (e) => {
+      const accountNo = document.getElementById('accountNo').value;
+      const pin = document.getElementById('pin').value;
+      
+      if (!accountNo || !pin) {
+        showToast('Please enter account number and PIN', 'warning');
+        return;
+      }
+      
+      const btn = e.target;
+      btn.classList.add('loading');
+      
+      try {
+        const res = await fetch('/api/payment/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderIds: '<%= orderIds %>', method: '<%= method %>' })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          showToast('Payment successful! Redirecting...');
+          setTimeout(() => { window.location.href = '/orders'; }, 1500);
+        } else {
+          showToast(data.error || 'Payment failed', 'error');
+          btn.classList.remove('loading');
+        }
+      } catch (err) {
+        showToast('Server error', 'error');
+        btn.classList.remove('loading');
+      }
+    });
+  </script>
+</body>
+</html>

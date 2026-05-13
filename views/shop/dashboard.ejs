@@ -64,6 +64,42 @@
       </div>
 
       <div class="card" style="margin-top: 20px;">
+        <h3>Shop Profile Settings</h3>
+        <hr style="margin: 10px 0; border: none; border-top: 1px solid #eee;">
+        <form id="profileForm" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>Shop Name</label>
+            <input type="text" id="shopName" name="shopName" class="form-control" value="<%= shop.shop_name %>" required>
+          </div>
+          <div class="form-group">
+            <label>Shop Description</label>
+            <textarea id="shopDesc" name="description" class="form-control" rows="3"><%= shop.description %></textarea>
+          </div>
+          <div class="form-group">
+            <label>Shop Logo</label>
+            <% if (shop.image_url) { %>
+              <div style="margin-bottom: 10px;">
+                <img src="<%= shop.image_url %>" height="50" style="border-radius: 4px; border: 1px solid #ddd;">
+              </div>
+            <% } %>
+            <input type="file" id="logo" name="image" class="form-control" accept="image/*">
+            <small style="color: #666;">Leave empty to keep current logo.</small>
+          </div>
+          <div class="form-group">
+            <label>Cover Picture</label>
+            <% if (shop.cover_image_url) { %>
+              <div style="margin-bottom: 10px;">
+                <img src="<%= shop.cover_image_url %>" height="80" style="border-radius: 4px; border: 1px solid #ddd; max-width: 100%; object-fit: cover;">
+              </div>
+            <% } %>
+            <input type="file" id="cover_image" name="cover_image" class="form-control" accept="image/*">
+            <small style="color: #666;">Leave empty to keep current cover picture. Ideal size is 1200x400px.</small>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Update Profile</button>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
         <h3>📍 Shop Location</h3>
         <hr style="margin: 10px 0; border: none; border-top: 1px solid #eee;">
         <div style="font-size: 13px; color: #666; margin-bottom: 15px;">Your exact delivery pin. Customers use this to find products near them. Drag the pin to adjust your location.</div>
@@ -172,6 +208,32 @@
         showToast('Network error', 'error');
       }
     }
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.classList.add('loading');
+      
+      const formData = new FormData(e.target);
+      
+      try {
+        const res = await fetch('/api/shop/profile', {
+          method: 'PUT',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Profile updated successfully!');
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          showToast(data.error || 'Failed to update profile', 'error');
+          btn.classList.remove('loading');
+        }
+      } catch (err) {
+        showToast('Network error', 'error');
+        btn.classList.remove('loading');
+      }
+    });
 
     loadDashboard();
   </script>

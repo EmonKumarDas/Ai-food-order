@@ -81,6 +81,24 @@ router.post('/api/orders', requireAuth, roleGuard('customer'), (req, res) => {
   }
 });
 
+// POST /api/payment/confirm — Confirm payment simulator
+router.post('/api/payment/confirm', requireAuth, roleGuard('customer'), (req, res) => {
+  try {
+    const { orderIds, method } = req.body;
+    if (!orderIds || !method) return res.status(400).json({ error: 'Invalid payment data' });
+    
+    const ids = orderIds.split(',').map(id => parseInt(id.trim()));
+    const placeholders = ids.map(() => '?').join(',');
+    
+    db.prepare(`UPDATE orders SET status = 'confirmed' WHERE id IN (${placeholders}) AND user_id = ?`).run(...ids, req.user.id);
+    
+    res.json({ success: true, message: 'Payment confirmed' });
+  } catch (err) {
+    console.error('Payment confirm error:', err);
+    res.status(500).json({ error: 'Failed to confirm payment' });
+  }
+});
+
 // GET /api/orders/:id — Single order detail
 router.get('/api/orders/:id', requireAuth, (req, res) => {
   try {

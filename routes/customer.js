@@ -23,9 +23,50 @@ router.get('/home', requireAuth, roleGuard('customer'), (req, res) => {
   res.render('customer/home', { user: req.user });
 });
 
+// GET /shops — All shops directory page
+router.get('/shops', requireAuth, roleGuard('customer'), (req, res) => {
+  res.render('customer/all-shops', { user: req.user });
+});
+
+// GET /shop/:id — Shop details page
+router.get('/shop/:id', requireAuth, roleGuard('customer'), (req, res) => {
+  try {
+    const shop = db.prepare(`
+      SELECT s.*, 
+        (SELECT COUNT(*) FROM products WHERE shop_id = s.id AND is_available = 1) as product_count,
+        (SELECT COALESCE(AVG(r.star_rating), 0) FROM reviews r WHERE r.shop_id = s.id) as avg_rating
+      FROM shops s 
+      WHERE s.id = ? AND s.is_active = 1
+    `).get(req.params.id);
+
+    if (!shop) return res.redirect('/home');
+    res.render('customer/shop', { user: req.user, shop });
+  } catch (err) {
+    res.redirect('/home');
+  }
+});
+
 // GET /checkout — Checkout page
 router.get('/checkout', requireAuth, roleGuard('customer'), (req, res) => {
   res.render('customer/checkout', { user: req.user });
+});
+
+// GET /payment — Payment simulator page
+router.get('/payment', requireAuth, roleGuard('customer'), (req, res) => {
+  const { method, orders } = req.query;
+  if (!method || !orders) return res.redirect('/orders');
+  
+  const orderIds = orders.split(',');
+  let totalAmount = 0;
+  try {
+    const placeholders = orderIds.map(() => '?').join(',');
+    const results = db.prepare(`SELECT total_amount FROM orders WHERE id IN (${placeholders}) AND user_id = ?`).all(...orderIds, req.user.id);
+    totalAmount = results.reduce((sum, order) => sum + order.total_amount, 0);
+  } catch (err) {
+    return res.redirect('/orders');
+  }
+
+  res.render('customer/payment', { user: req.user, method, orderIds: orders, totalAmount });
 });
 
 // GET /orders — Order history page
@@ -54,6 +95,28 @@ router.get('/review/:orderId', requireAuth, roleGuard('customer'), (req, res) =>
   `).all(order.id);
 
   res.render('customer/review', { user: req.user, order, items });
+});
+
+// GET /orders/:id/invoice — Invoice page
+router.get('/orders/:id/invoice', requireAuth, (req, res) => {
+  const order = db.prepare(`
+    SELECT o.*, s.shop_name, s.description as shop_description, u.name as customer_name, u.email as customer_email
+    FROM orders o 
+    JOIN shops s ON o.shop_id = s.id
+    JOIN users u ON o.user_id = u.id
+    WHERE o.id = ? AND (o.user_id = ? OR ? = 'admin' OR (? = 'shop' AND s.user_id = ?))
+  `).get(req.params.id, req.user.id, req.user.role, req.user.role, req.user.id);
+
+  if (!order) return res.redirect('/orders');
+
+  const items = db.prepare(`
+    SELECT oi.*, p.name as product_name 
+    FROM order_items oi 
+    JOIN products p ON oi.product_id = p.id 
+    WHERE oi.order_id = ?
+  `).all(order.id);
+
+  res.render('customer/invoice', { user: req.user, order, items });
 });
 
 // --- API Routes ---
@@ -142,16 +205,19 @@ router.get('/api/categories', (req, res) => {
   }
 });
 
-// GET /api/shops — List all active shops
+// GET /api/shops — List all existing shops
 router.get('/api/shops', (req, res) => {
   try {
+    const showAll = req.query.all === 'true';
+    const whereClause = showAll ? '' : 'WHERE s.is_active = 1';
     const shops = db.prepare(`
       SELECT s.*, 
         (SELECT COUNT(*) FROM products WHERE shop_id = s.id AND is_available = 1) as product_count,
-        (SELECT COALESCE(AVG(r.star_rating), 0) FROM reviews r WHERE r.shop_id = s.id) as avg_rating
+        (SELECT COALESCE(AVG(r.star_rating), 0) FROM reviews r WHERE r.shop_id = s.id) as avg_rating,
+        (SELECT COUNT(DISTINCT r.id) FROM reviews r WHERE r.shop_id = s.id) as review_count
       FROM shops s 
-      WHERE s.is_active = 1
-      ORDER BY s.shop_name
+      ${whereClause}
+      ORDER BY s.is_active DESC, s.shop_name
     `).all();
     res.json({ shops });
   } catch (err) {

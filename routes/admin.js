@@ -5,6 +5,18 @@ const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
+const path = require('path');
+
+// Multer config for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, '../public/images/uploads')),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/\s/g, '_'))
+});
+const upload = multer({ storage, fileFilter: (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  cb(null, allowed.includes(file.mimetype));
+}});
 
 // Page routes
 router.get('/admin/dashboard', requireAuth, roleGuard('admin'), (req, res) => {
@@ -24,6 +36,15 @@ router.get('/admin/alerts', requireAuth, roleGuard('admin'), (req, res) => {
 });
 router.get('/admin/reports', requireAuth, roleGuard('admin'), (req, res) => {
   res.render('admin/reports', { user: req.user });
+});
+router.get('/admin/shops/:id/edit', requireAuth, roleGuard('admin'), (req, res) => {
+  try {
+    const shop = db.prepare('SELECT s.*, u.email as owner_email FROM shops s JOIN users u ON s.user_id = u.id WHERE s.id = ?').get(req.params.id);
+    if (!shop) return res.redirect('/admin/shops');
+    res.render('admin/edit-shop', { user: req.user, shop });
+  } catch (err) {
+    res.redirect('/admin/shops');
+  }
 });
 
 // API: Dashboard stats
@@ -124,6 +145,25 @@ router.patch('/api/admin/shops/:id/toggle', requireAuth, roleGuard('admin'), (re
     res.json({ success: true, is_active: newStatus });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update shop' });
+  }
+});
+
+// API: Update shop details
+router.put('/api/admin/shops/:id', requireAuth, roleGuard('admin'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'cover_image', maxCount: 1 }]), (req, res) => {
+  try {
+    const { shop_name, description } = req.body;
+    if (!shop_name) return res.status(400).json({ error: 'Shop name is required' });
+    const shop = db.prepare('SELECT * FROM shops WHERE id = ?').get(req.params.id);
+    if (!shop) return res.status(404).json({ error: 'Shop not found' });
+    
+    const imageUrl = (req.files && req.files['image']) ? `/images/uploads/${req.files['image'][0].filename}` : shop.image_url;
+    const coverImageUrl = (req.files && req.files['cover_image']) ? `/images/uploads/${req.files['cover_image'][0].filename}` : shop.cover_image_url;
+    
+    db.prepare('UPDATE shops SET shop_name = ?, description = ?, image_url = ?, cover_image_url = ? WHERE id = ?')
+      .run(shop_name, description || '', imageUrl, coverImageUrl, shop.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update shop details' });
   }
 });
 

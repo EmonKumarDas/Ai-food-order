@@ -121,6 +121,15 @@ function initializeDatabase() {
   try {
     db.exec(`ALTER TABLE shops ADD COLUMN longitude REAL`);
   } catch(e) {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
+  } catch(e) {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_expires DATETIME`);
+  } catch(e) {}
+  try {
+    db.exec(`ALTER TABLE shops ADD COLUMN cover_image_url TEXT`);
+  } catch(e) {}
 
   // Create useful indexes
   db.exec(`

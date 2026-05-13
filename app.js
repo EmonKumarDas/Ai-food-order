@@ -38,10 +38,10 @@ const adminRoutes = require('./routes/admin');
 const reportRoutes = require('./routes/reports');
 
 app.use(authRoutes);
+app.use(shopRoutes);
 app.use(customerRoutes);
 app.use(orderRoutes);
 app.use(reviewRoutes);
-app.use(shopRoutes);
 app.use(adminRoutes);
 app.use(reportRoutes);
 

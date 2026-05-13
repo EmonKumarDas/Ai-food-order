@@ -15,7 +15,8 @@
       <a href="/home" class="brand">🍽️ AI Food Order</a>
       <div class="nav-links">
         <a href="/home">Home</a>
-        <a href="/orders" style="color: var(--primary); font-weight: bold;">History</a>
+        <a href="/shops">All Shops</a>
+        <a href="/orders" class="active">History</a>
         <span style="margin-left: 20px;">Welcome, <%= user.name %>!</span>
         <a href="/logout" style="color: var(--danger); margin-left: 15px;">Logout</a>
       </div>
@@ -100,11 +101,14 @@
           </ul>
           
           <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+            ${['confirmed', 'preparing', 'delivered'].includes(o.status) ? `
+              <a href="/orders/${o.id}/invoice" class="btn" style="background: #27ae60; color: white; padding: 6px 14px; font-size: 13px; width: auto; text-decoration: none;">📄 View Invoice</a>
+            ` : ''}
             ${o.status === 'delivered' ? `
               <button class="btn" style="background: #6c5ce7; color: white; padding: 6px 14px; font-size: 13px; width: auto;" onclick='reorder(${JSON.stringify(o.items).replace(/'/g, "&#39;")})'>🔄 Order Again</button>
             ` : ''}
             ${o.status === 'delivered' && !o.has_review ? `
-              <a href="/review/${o.id}" class="btn" style="background: #e84393; color: white; padding: 6px 14px; font-size: 13px; width: auto;">⭐ Leave a Review</a>
+              <a href="/review/${o.id}" class="btn" style="background: #e84393; color: white; padding: 6px 14px; font-size: 13px; width: auto; text-decoration: none;">⭐ Leave a Review</a>
             ` : ''}
             ${o.status === 'delivered' && o.has_review ? `
               <span style="color: var(--success); font-size: 14px; padding: 6px 0;">✓ Reviewed</span>

@@ -17,7 +17,9 @@
       <a href="/home" class="brand">🍽️ AI Food Order</a>
       <div class="nav-links">
         <a href="/home">Home</a>
+        <a href="/shops">All Shops</a>
         <a href="/orders">History</a>
+        <span style="margin-left: 20px;">Welcome, <%= user.name %>!</span>
         <a href="/logout" style="color: var(--danger);">Logout</a>
       </div>
     </div>
@@ -38,6 +40,10 @@
           <label>Payment Method</label>
           <select id="payment" class="form-control">
             <option value="cod">Cash on Delivery (COD)</option>
+            <option value="sslcommerz">SSLCommerz</option>
+            <option value="bkash">bKash</option>
+            <option value="nagad">Nagad</option>
+            <option value="rocket">Rocket</option>
           </select>
         </div>
       </div>
@@ -105,18 +111,27 @@
       const btn = e.target;
       btn.classList.add('loading');
 
+      const paymentMethod = document.getElementById('payment').value;
+
       try {
         const res = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: cart, deliveryAddress: address })
+          body: JSON.stringify({ items: cart, deliveryAddress: address, paymentMethod })
         });
         
         const data = await res.json();
         if (data.success) {
-          showToast('Order placed successfully! Redirecting...');
           localStorage.removeItem('cart');
-          setTimeout(() => { window.location.href = '/orders'; }, 1500);
+          if (paymentMethod === 'cod') {
+            showToast('Order placed successfully! Redirecting...');
+            setTimeout(() => { window.location.href = '/orders'; }, 1500);
+          } else {
+            showToast('Redirecting to payment gateway...');
+            setTimeout(() => { 
+              window.location.href = '/payment?method=' + paymentMethod + '&orders=' + data.orderIds.join(','); 
+            }, 1000);
+          }
         } else {
           showToast(data.error || 'Failed to place order', 'error');
           btn.classList.remove('loading');

@@ -37,9 +37,10 @@
           <input type="email" id="email" class="form-control" required>
         </div>
         
-        <div class="form-group">
+        <div class="form-group" style="position: relative;">
           <label>Password</label>
-          <input type="password" id="password" class="form-control" required minlength="6">
+          <input type="password" id="password" class="form-control" required minlength="6" style="padding-right: 40px;">
+          <span id="togglePassword" style="position: absolute; right: 10px; top: 38px; cursor: pointer; color: #666;">👁️</span>
         </div>
         
         <button type="submit" class="btn btn-primary">Create Account</button>
@@ -86,6 +87,17 @@
         shopInput.required = false;
       }
     }
+
+    document.getElementById('togglePassword').addEventListener('click', function() {
+      const pwd = document.getElementById('password');
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        this.textContent = '🙈';
+      } else {
+        pwd.type = 'password';
+        this.textContent = '👁️';
+      }
+    });
 
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
       e.preventDefault();

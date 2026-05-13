@@ -29,15 +29,35 @@ router.post('/api/reviews', requireAuth, roleGuard('customer'), async (req, res)
     const order = db.prepare(`SELECT * FROM orders WHERE id = ? AND user_id = ? AND status = 'delivered'`).get(orderId, req.user.id);
     if (!order) return res.status(400).json({ error: 'Invalid or undelivered order' });
 
-    let sentiment = { label: 'neutral', score: 0.5 };
-    if (reviewText && reviewText.trim().length > 3) sentiment = await analyzeReviewSentiment(reviewText);
+    // Initial fallback sentiment for fast response
+    let initialLabel = 'neutral';
+    let initialScore = 0.5;
 
+    // Save review immediately
     const result = db.prepare(`INSERT INTO reviews (user_id, order_id, product_id, shop_id, star_rating, review_text, sentiment_label, sentiment_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(req.user.id, orderId, productId || null, order.shop_id, starRating, reviewText || null, sentiment.label, sentiment.score);
+      .run(req.user.id, orderId, productId || null, order.shop_id, starRating, reviewText || null, initialLabel, initialScore);
+    
+    const reviewId = result.lastInsertRowid;
 
-    if (productId && sentiment.label === 'negative') checkNegativeSpike(productId, order.shop_id);
+    // Background Async Task to process real AI Sentiment
+    if (reviewText && reviewText.trim().length > 3) {
+      Promise.resolve().then(async () => {
+        try {
+          const sentiment = await analyzeReviewSentiment(reviewText);
+          db.prepare(`UPDATE reviews SET sentiment_label = ?, sentiment_score = ? WHERE id = ?`)
+            .run(sentiment.label, sentiment.score, reviewId);
+          
+          if (productId && sentiment.label === 'negative') {
+            checkNegativeSpike(productId, order.shop_id);
+          }
+        } catch (bgErr) {
+          console.error('Background Sentiment Analysis Failed:', bgErr);
+        }
+      });
+    }
 
-    res.json({ success: true, reviewId: result.lastInsertRowid, sentiment });
+    // Return instant response to user
+    res.json({ success: true, reviewId, message: 'Review submitted successfully!' });
   } catch (err) {
     console.error('Review error:', err);
     res.status(500).json({ error: 'Failed to submit review' });

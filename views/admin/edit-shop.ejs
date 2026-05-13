@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Shop - Admin Portal</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/admin/dashboard" class="brand">👑 Admin Portal</a>
+      <div class="nav-links">
+        <span style="margin-left: 20px;">Welcome, <%= user.name %>!</span>
+        <a href="/logout" style="color: var(--danger); margin-left: 15px;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container dashboard-grid">
+    <div class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="/admin/dashboard">Overview</a></li>
+        <li><a href="/admin/users">Users</a></li>
+        <li><a href="/admin/shops" class="active">Shops</a></li>
+        <li><a href="/admin/orders">Orders</a></li>
+        <li><a href="/admin/alerts">AI Alerts</a></li>
+        <li><a href="/admin/reports">Reports</a></li>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>Edit Shop: <%= shop.shop_name %></h2>
+        <a href="/admin/shops" class="btn" style="background: #eee; color: #333; text-decoration: none;">Back to Shops</a>
+      </div>
+      
+      <div class="card">
+        <form id="editShopForm" enctype="multipart/form-data">
+          <input type="hidden" id="shopId" value="<%= shop.id %>">
+          
+          <div class="form-group">
+            <label>Shop Name</label>
+            <input type="text" id="shopName" name="shop_name" class="form-control" value="<%= shop.shop_name %>" required>
+          </div>
+          
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="description" name="description" class="form-control" rows="4"><%= shop.description %></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Shop Logo</label>
+            <% if (shop.image_url) { %>
+              <div style="margin-bottom: 10px;">
+                <img src="<%= shop.image_url %>" height="50" style="border-radius: 4px; border: 1px solid #ddd;">
+              </div>
+            <% } %>
+            <input type="file" id="logo" name="image" class="form-control" accept="image/*">
+            <small style="color: #666;">Leave empty to keep current logo.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Cover Picture</label>
+            <% if (shop.cover_image_url) { %>
+              <div style="margin-bottom: 10px;">
+                <img src="<%= shop.cover_image_url %>" height="80" style="border-radius: 4px; border: 1px solid #ddd; max-width: 100%; object-fit: cover;">
+              </div>
+            <% } %>
+            <input type="file" id="cover_image" name="cover_image" class="form-control" accept="image/*">
+            <small style="color: #666;">Leave empty to keep current cover picture.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Owner Email</label>
+            <input type="text" class="form-control" value="<%= shop.owner_email %>" disabled style="background: #f5f5f5;">
+          </div>
+          
+          <div class="form-group">
+            <label>Status</label>
+            <input type="text" class="form-control" value="<%= shop.is_active ? 'Active' : 'Pending/Inactive' %>" disabled style="background: #f5f5f5; color: <%= shop.is_active ? 'var(--success)' : 'var(--danger)' %>; font-weight: bold;">
+          </div>
+          
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" style="display:none;position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:4px;color:white;box-shadow:0 4px 10px rgba(0,0,0,.2);z-index:2000;background:var(--success);"></div>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.background = type === 'error' ? 'var(--danger)' : 'var(--success)';
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    document.getElementById('editShopForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const shopId = document.getElementById('shopId').value;
+      const btn = e.target.querySelector('button[type="submit"]');
+      
+      btn.classList.add('loading');
+      
+      const formData = new FormData(e.target);
+      
+      try {
+        const res = await fetch(`/api/admin/shops/${shopId}`, {
+          method: 'PUT',
+          body: formData
+        });
+        const data = await res.json();
+        
+        btn.classList.remove('loading');
+        
+        if (data.success) {
+          showToast('Shop details updated successfully!');
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          showToast(data.error || 'Failed to update shop', 'error');
+        }
+      } catch (err) {
+        showToast('Network error', 'error');
+        btn.classList.remove('loading');
+      }
+    });
+  </script>
+</body>
+</html>

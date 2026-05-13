@@ -136,7 +136,10 @@
           <td style="padding: 12px;">
             <div style="display: flex; gap: 5px;">
               <button class="btn" style="padding: 4px 8px; font-size: 12px; background: ${s.is_active ? 'var(--warning)' : 'var(--success)'}; color: white;" onclick="showConfirmModal(${s.id}, ${s.is_active}, 'toggle')">
-                ${s.is_active ? 'Deactivate' : 'Approve Shop'}
+                ${s.is_active ? 'Deactivate' : 'Approve'}
+              </button>
+              <button class="btn" style="padding: 4px 8px; font-size: 12px; background: var(--primary); color: white;" onclick="window.location.href='/admin/shops/${s.id}/edit'">
+                Edit
               </button>
               <button class="btn" style="padding: 4px 8px; font-size: 12px; background: var(--danger); color: white;" onclick="showConfirmModal(${s.id}, null, 'delete')">
                 Delete

@@ -80,6 +80,27 @@ router.put('/api/shop/location', requireAuth, roleGuard('shop'), (req, res) => {
   }
 });
 
+// API: Update shop profile
+router.put('/api/shop/profile', requireAuth, roleGuard('shop'), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'cover_image', maxCount: 1 }]), (req, res) => {
+  try {
+    const shop = getShop(req.user.id);
+    if (!shop) return res.status(404).json({ error: 'Shop not found' });
+    const { shopName, description } = req.body;
+    if (!shopName) return res.status(400).json({ error: 'Shop name is required' });
+    
+    const imageUrl = (req.files && req.files['image']) ? `/images/uploads/${req.files['image'][0].filename}` : shop.image_url;
+    const coverImageUrl = (req.files && req.files['cover_image']) ? `/images/uploads/${req.files['cover_image'][0].filename}` : shop.cover_image_url;
+    
+    db.prepare('UPDATE shops SET shop_name = ?, description = ?, image_url = ?, cover_image_url = ? WHERE id = ?')
+      .run(shopName, description || '', imageUrl, coverImageUrl, shop.id);
+      
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 // API: Get shop products
 router.get('/api/shop/products', requireAuth, roleGuard('shop'), (req, res) => {
   try {

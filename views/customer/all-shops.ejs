@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Shops - AI Food Order</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .page-header h2 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+    }
+    .page-header p {
+      color: #888;
+      font-size: 15px;
+    }
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+    .stat-chip .stat-number {
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--primary);
+    }
+    .search-bar {
+      max-width: 650px;
+      margin: 0 auto 30px auto;
+      display: flex;
+      gap: 10px;
+      position: relative;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 12px 20px 12px 44px;
+      border: 2px solid #e8e8e8;
+      border-radius: 12px;
+      font-size: 15px;
+      transition: border-color .2s, box-shadow .2s;
+      background: #fff;
+    }
+    .search-bar input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+      outline: none;
+    }
+    .search-icon {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 18px;
+      color: #aaa;
+      pointer-events: none;
+    }
+    .filter-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .filter-tab {
+      padding: 8px 18px;
+      border-radius: 20px;
+      background: #f0f0f0;
+      color: #555;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all .2s;
+    }
+    .filter-tab.active, .filter-tab:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .shops-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .shop-directory-card {
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      animation: slideUp 0.4s ease forwards;
+      opacity: 0;
+      position: relative;
+    }
+    .shop-directory-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+    }
+    .shop-directory-card.inactive {
+      opacity: 0.65;
+      filter: grayscale(30%);
+    }
+    .shop-directory-card.inactive:hover {
+      opacity: 0.85;
+    }
+    .shop-cover {
+      width: 100%;
+      height: 130px;
+      background-size: cover;
+      background-position: center;
+      background-color: #e8eaf0;
+      position: relative;
+    }
+    .shop-cover::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.08));
+    }
+    .status-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 1;
+    }
+    .status-badge.active {
+      background: rgba(46,204,113,0.9);
+      color: #fff;
+    }
+    .status-badge.pending {
+      background: rgba(241,196,15,0.9);
+      color: #333;
+    }
+    .shop-logo-container {
+      display: flex;
+      justify-content: center;
+      margin-top: -38px;
+      position: relative;
+      z-index: 2;
+    }
+    .shop-logo {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      background-size: cover;
+      background-position: center;
+      background-color: #fff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .shop-info {
+      padding: 14px 18px 20px;
+      text-align: center;
+      flex: 1;
+    }
+    .shop-name {
+      font-size: 17px;
+      font-weight: 700;
+      margin: 0 0 4px 0;
+      color: #1a1a2e;
+    }
+    .shop-desc {
+      color: #888;
+      font-size: 13px;
+      margin-bottom: 14px;
+      min-height: 36px;
+      line-height: 1.4;
+    }
+    .shop-meta {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      font-size: 13px;
+      color: #666;
+    }
+    .shop-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #f7f7f9;
+      padding: 5px 12px;
+      border-radius: 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+      grid-column: 1 / -1;
+    }
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .loading-skeleton {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .skeleton-card {
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .skeleton-cover {
+      height: 130px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    .skeleton-body {
+      padding: 50px 20px 20px;
+      text-align: center;
+    }
+    .skeleton-line {
+      height: 14px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 7px;
+      margin: 0 auto 10px auto;
+    }
+
+    @media (max-width: 600px) {
+      .shops-grid {
+        grid-template-columns: 1fr;
+      }
+      .stats-bar {
+        gap: 12px;
+      }
+      .stat-chip {
+        padding: 8px 14px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a href="/home" class="brand">🍽️ AI Food Order</a>
+      <div class="nav-links">
+        <a href="/home">Home</a>
+        <a href="/shops" style="font-weight: bold;">All Shops</a>
+        <a href="/orders">History</a>
+        <span style="margin-left: 20px;">Welcome, <%= user.name %>!</span>
+        <a href="javascript:void(0)" onclick="openCart()" style="margin-left: 15px; font-weight: bold; color: var(--primary);">🛒 Cart (<span id="cart-count">0</span>)</a>
+        <a href="/logout" style="color: var(--danger); margin-left: 15px;">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="margin-top: 40px; margin-bottom: 60px;">
+    
+    <!-- Page Header -->
+    <div class="page-header">
+      <h2>🏪 Explore All Shops</h2>
+      <p>Discover every restaurant & food shop on our platform</p>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-chip">
+        <span>🏪</span>
+        <span>Total: <span class="stat-number" id="stat-total">0</span></span>
+      </div>
+      <div class="stat-chip">
+        <span>✅</span>
+        <span>Active: <span class="stat-number" id="stat-active">0</span></span>
+      </div>
+      <div class="stat-chip">
+        <span>⏳</span>
+        <span>Pending: <span class="stat-number" id="stat-pending">0</span></span>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="shop-search-input" placeholder="Search shops by name or description..." oninput="filterShops()">
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+      <button class="filter-tab active" onclick="setFilter('all', this)">All Shops</button>
+      <button class="filter-tab" onclick="setFilter('active', this)">Active</button>
+      <button class="filter-tab" onclick="setFilter('pending', this)">Pending</button>
+    </div>
+
+    <!-- Loading Skeleton -->
+    <div id="loading-skeleton" class="loading-skeleton">
+      <div class="skeleton-card"><div class="skeleton-cover"></div><div class="skeleton-body"><div class="skeleton-line" style="width:50%"></div><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:40%"></div></div></div>
+      <div class="skeleton-card"><div class="skeleton-cover"></div><div class="skeleton-body"><div class="skeleton-line" style="width:50%"></div><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:40%"></div></div></div>
+      <div class="skeleton-card"><div class="skeleton-cover"></div><div class="skeleton-body"><div class="skeleton-line" style="width:50%"></div><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:40%"></div></div></div>
+    </div>
+
+    <!-- Shops Grid -->
+    <div id="shops-container" class="shops-grid" style="display:none;"></div>
+  </div>
+
+  <!-- Cart Sidebar -->
+  <div id="cartSidebar" style="display:none;position:fixed;top:0;right:0;width:350px;height:100%;background:white;box-shadow:-5px 0 15px rgba(0,0,0,0.1);z-index:2000;flex-direction:column;animation:slideIn .3s ease">
+    <div style="padding:20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">🛒 Your Cart</h3>
+      <button style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;" onclick="document.getElementById('cartSidebar').style.display='none'">&times;</button>
+    </div>
+    <div id="cartItems" style="padding:20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:15px;"></div>
+    <div style="padding:20px;border-top:1px solid #eee;background:#fafafa;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:15px;font-weight:bold;font-size:18px;">
+        <span>Total:</span>
+        <span id="cartTotal">$0.00</span>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:12px;font-size:16px;" onclick="window.location.href='/checkout'">Proceed to Checkout</button>
+    </div>
+  </div>
+  <style>@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}</style>
+
+  <!-- Toast -->
+  <div id="toast" style="display:none;position:fixed;bottom:30px;right:30px;padding:15px 25px;border-radius:8px;color:white;box-shadow:0 4px 15px rgba(0,0,0,.2);z-index:2000;animation:slideUp .3s ease;font-weight:500;"></div>
+
+  <script>
+    let allShops = [];
+    let currentFilter = 'all';
+
+    async function loadShops() {
+      try {
+        const res = await fetch('/api/shops?all=true');
+        const data = await res.json();
+        allShops = data.shops || [];
+        
+        // Update stats
+        document.getElementById('stat-total').textContent = allShops.length;
+        document.getElementById('stat-active').textContent = allShops.filter(s => s.is_active).length;
+        document.getElementById('stat-pending').textContent = allShops.filter(s => !s.is_active).length;
+
+        // Hide skeleton, show grid
+        document.getElementById('loading-skeleton').style.display = 'none';
+        document.getElementById('shops-container').style.display = 'grid';
+
+        filterShops();
+      } catch(e) {
+        document.getElementById('loading-skeleton').innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">⚠️</div><p>Failed to load shops. Please try again.</p></div>';
+      }
+    }
+
+    function setFilter(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      filterShops();
+    }
+
+    function filterShops() {
+      const searchTerm = document.getElementById('shop-search-input').value.toLowerCase();
+      let filtered = allShops;
+
+      // Apply status filter
+      if (currentFilter === 'active') {
+        filtered = filtered.filter(s => s.is_active);
+      } else if (currentFilter === 'pending') {
+        filtered = filtered.filter(s => !s.is_active);
+      }
+
+      // Apply search filter
+      if (searchTerm) {
+        filtered = filtered.filter(s => 
+          s.shop_name.toLowerCase().includes(searchTerm) || 
+          (s.description && s.description.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      renderShops(filtered);
+    }
+
+    function renderShops(shopsToRender) {
+      const container = document.getElementById('shops-container');
+      
+      if (shopsToRender.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🏪</div>
+            <h3 style="margin-bottom:8px;color:#666;">No shops found</h3>
+            <p>Try adjusting your search or filter criteria.</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = shopsToRender.map((s, i) => `
+        <a href="${s.is_active ? '/shop/' + s.id : 'javascript:void(0)'}" 
+           class="shop-directory-card ${s.is_active ? '' : 'inactive'}" 
+           style="animation-delay: ${i * 0.06}s;"
+           ${!s.is_active ? 'onclick="showToast(\'This shop is not yet active.\', \'warning\')"' : ''}>
+          <div class="shop-cover" style="background-image: url('${s.cover_image_url || s.image_url || '/images/default-cover.jpg'}');">
+            <span class="status-badge ${s.is_active ? 'active' : 'pending'}">${s.is_active ? '● Open' : '⏳ Pending'}</span>
+          </div>
+          <div class="shop-logo-container">
+            <div class="shop-logo" style="background-image: url('${s.image_url || '/images/default-shop.png'}');"></div>
+          </div>
+          <div class="shop-info">
+            <h3 class="shop-name">${s.shop_name}</h3>
+            <p class="shop-desc">${s.description ? (s.description.substring(0, 75) + (s.description.length > 75 ? '...' : '')) : 'No description provided.'}</p>
+            <div class="shop-meta">
+              <span class="shop-meta-item">⭐ ${s.avg_rating ? s.avg_rating.toFixed(1) : '0.0'}</span>
+              <span class="shop-meta-item">🍽️ ${s.product_count} items</span>
+              <span class="shop-meta-item">💬 ${s.review_count || 0}</span>
+            </div>
+          </div>
+        </a>
+      `).join('');
+    }
+
+    function showToast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.background = type === 'error' ? 'var(--danger)' : type === 'warning' ? '#f39c12' : 'var(--success)';
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    // ---- Cart ----
+    function updateCartCount() {
+      let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      let count = cart.reduce((sum, item) => sum + item.quantity, 0);
+      document.getElementById('cart-count').textContent = count;
+    }
+
+    function openCart() {
+      renderCartItems();
+      document.getElementById('cartSidebar').style.display = 'flex';
+    }
+
+    function renderCartItems() {
+      let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const container = document.getElementById('cartItems');
+      if (cart.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:#999;margin-top:20px;">Your cart is empty.</p>';
+        document.getElementById('cartTotal').textContent = '$0.00';
+        return;
+      }
+
+      let total = 0;
+      container.innerHTML = cart.map((item, index) => {
+        total += item.price * item.quantity;
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #eee;">
+            <div style="flex:1;">
+              <div style="font-weight:bold;font-size:14px;">${item.name}</div>
+              <div style="color:var(--primary);font-size:13px;">$${item.price.toFixed(2)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;background:#f0f0f0;padding:4px 8px;border-radius:15px;">
+              <button style="border:none;background:white;width:24px;height:24px;border-radius:12px;cursor:pointer;font-weight:bold;line-height:1;" onclick="updateQuantity(${index}, -1)">-</button>
+              <span style="font-size:14px;width:15px;text-align:center;">${item.quantity}</span>
+              <button style="border:none;background:white;width:24px;height:24px;border-radius:12px;cursor:pointer;font-weight:bold;line-height:1;" onclick="updateQuantity(${index}, 1)">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('cartTotal').textContent = '$' + total.toFixed(2);
+    }
+
+    function updateQuantity(index, change) {
+      let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      let item = cart[index];
+      let newQty = item.quantity + change;
+      
+      if (newQty > 5) return;
+      if (newQty <= 0) cart.splice(index, 1);
+      else item.quantity = newQty;
+      
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCartCount();
+      renderCartItems();
+    }
+
+    // Init
+    updateCartCount();
+    loadShops();
+  </script>
+</body>
+</html>
